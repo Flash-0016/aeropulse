@@ -1,0 +1,6 @@
+{
+  "name": "AeroPulse - Air Quality Intelligence",
+  "description": "Professional air quality intelligence and environmental monitoring platform providing real-time AQI tracking, particulate breakdown, GIS station mapping, predictive forecasts, and public health advisories.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
