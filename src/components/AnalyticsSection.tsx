@@ -383,7 +383,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
 
         {/* Chart Viewport */}
         <div className="h-72 sm:h-80 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
             <LineChart
               data={trendData}
               margin={{ top: 15, right: 20, left: -15, bottom: 5 }}
@@ -566,7 +566,7 @@ export const AnalyticsSection: React.FC<AnalyticsSectionProps> = ({
         </div>
 
         <div className="h-72 w-full pt-2">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={280}>
             <LineChart
               data={trendData}
               margin={{ top: 10, right: 20, left: -15, bottom: 5 }}

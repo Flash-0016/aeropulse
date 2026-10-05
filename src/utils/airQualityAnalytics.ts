@@ -45,86 +45,103 @@ export interface HeatmapCell {
   note: string;
 }
 
-// Generate realistic 5-day predictive environmental forecast based on current station conditions
+// Generate realistic 5-day predictive environmental forecast based on current station conditions and real-world date telemetry
 export function getAirQualityForecast(station: AirStation, standard: AQIStandard = 'NAQI'): ForecastDay[] {
   const baseAqi = standard === 'NAQI' ? station.aqiNAQI : station.aqiEPA;
   const isHighStagnation = station.weather.inversionStrength > 50;
+  const dailyApi = station.weather.dailyForecast || [];
 
-  // Day offsets starting from today
-  const days: ForecastDay[] = [
-    {
-      date: '2026-09-22',
-      dayLabel: 'Today',
-      predictedAqi: baseAqi,
-      category: getAQICategory(baseAqi, standard).label as any,
-      primaryPollutant: station.dominantPollutant,
-      tempHigh: Math.round(station.weather.temp + 4),
-      tempLow: Math.round(station.weather.temp - 5),
-      weatherCondition: station.weather.windSpeed < 2 ? 'Stagnant Haze' : 'Partly Cloudy',
-      windSpeedKmh: Math.round(station.weather.windSpeedKmh),
-      trend: 'stable',
-      confidence: 96,
-      synopsis: isHighStagnation
-        ? 'Persistent thermal inversion lid traps ground emissions until late afternoon convective heating.'
-        : 'Moderate atmospheric boundary layer ventilation ensures steady particulate dilution.',
-    },
-    {
-      date: '2026-09-23',
-      dayLabel: 'Tomorrow',
-      predictedAqi: Math.max(25, Math.round(baseAqi * (isHighStagnation ? 0.94 : 1.05))),
-      category: getAQICategory(Math.max(25, Math.round(baseAqi * (isHighStagnation ? 0.94 : 1.05))), standard).label as any,
-      primaryPollutant: station.dominantPollutant,
-      tempHigh: Math.round(station.weather.temp + 3),
-      tempLow: Math.round(station.weather.temp - 4),
-      weatherCondition: 'Light Breeze & Sun',
-      windSpeedKmh: Math.round(station.weather.windSpeedKmh * 1.25),
-      trend: isHighStagnation ? 'improving' : 'stable',
-      confidence: 92,
-      synopsis: 'Anticipated wind velocity uptick to 11 km/h facilitates boundary layer clearance.',
-    },
-    {
-      date: '2026-09-24',
-      dayLabel: 'Thu, Sep 24',
-      predictedAqi: Math.max(20, Math.round(baseAqi * (isHighStagnation ? 0.82 : 0.92))),
-      category: getAQICategory(Math.max(20, Math.round(baseAqi * (isHighStagnation ? 0.82 : 0.92))), standard).label as any,
-      primaryPollutant: baseAqi > 150 ? 'PM2.5' : 'O3',
-      tempHigh: Math.round(station.weather.temp + 2),
-      tempLow: Math.round(station.weather.temp - 6),
-      weatherCondition: 'Clear Sky',
-      windSpeedKmh: Math.round(station.weather.windSpeedKmh * 1.4),
-      trend: 'improving',
-      confidence: 88,
-      synopsis: 'Passage of dry frontal boundary elevates mixing depth above 900 meters.',
-    },
-    {
-      date: '2026-09-25',
-      dayLabel: 'Fri, Sep 25',
-      predictedAqi: Math.max(22, Math.round(baseAqi * (isHighStagnation ? 0.88 : 1.1))),
-      category: getAQICategory(Math.max(22, Math.round(baseAqi * (isHighStagnation ? 0.88 : 1.1))), standard).label as any,
-      primaryPollutant: station.dominantPollutant,
-      tempHigh: Math.round(station.weather.temp + 5),
-      tempLow: Math.round(station.weather.temp - 3),
-      weatherCondition: 'Warm Afternoon',
-      windSpeedKmh: Math.round(station.weather.windSpeedKmh * 0.9),
-      trend: isHighStagnation ? 'stable' : 'worsening',
-      confidence: 84,
-      synopsis: 'Weekend industrial traffic decrease offset by nighttime radiative surface cooling.',
-    },
-    {
-      date: '2026-09-26',
-      dayLabel: 'Sat, Sep 26',
-      predictedAqi: Math.max(18, Math.round(baseAqi * 0.78)),
-      category: getAQICategory(Math.max(18, Math.round(baseAqi * 0.78)), standard).label as any,
-      primaryPollutant: 'PM2.5',
-      tempHigh: Math.round(station.weather.temp + 1),
-      tempLow: Math.round(station.weather.temp - 5),
-      weatherCondition: 'Mild Breezes',
-      windSpeedKmh: Math.round(station.weather.windSpeedKmh * 1.3),
-      trend: 'improving',
-      confidence: 79,
-      synopsis: 'Lower cumulative freight emissions and enhanced westerly air stream support clean air recovery.',
-    },
+  const aqiFactors = [
+    1.0,
+    isHighStagnation ? 0.94 : 1.05,
+    isHighStagnation ? 0.82 : 0.92,
+    isHighStagnation ? 0.88 : 1.1,
+    0.78,
   ];
+
+  const trends: ('stable' | 'improving' | 'worsening')[] = [
+    'stable',
+    isHighStagnation ? 'improving' : 'stable',
+    'improving',
+    isHighStagnation ? 'stable' : 'worsening',
+    'improving',
+  ];
+
+  const synopses = [
+    isHighStagnation
+      ? 'Persistent thermal inversion lid traps ground emissions until late afternoon convective heating.'
+      : 'Moderate atmospheric boundary layer ventilation ensures steady particulate dilution.',
+    'Anticipated wind velocity uptick to 11 km/h facilitates boundary layer clearance.',
+    'Passage of dry frontal boundary elevates mixing depth above 900 meters.',
+    'Weekend industrial traffic decrease offset by nighttime radiative surface cooling.',
+    'Lower cumulative freight emissions and enhanced westerly air stream support clean air recovery.',
+  ];
+
+  const conditions = [
+    station.weather.windSpeed < 2 ? 'Stagnant Haze' : 'Partly Cloudy',
+    'Light Breeze & Sun',
+    'Clear Sky',
+    'Warm Afternoon',
+    'Mild Breezes',
+  ];
+
+  const confidences = [96, 92, 88, 84, 79];
+  const days: ForecastDay[] = [];
+  const now = new Date();
+
+  // Generate 5 consecutive real-world calendar days starting from today
+  for (let i = 0; i < 5; i++) {
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + i);
+
+    const dateFormatted = targetDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    let dayLabel = '';
+    if (i === 0) {
+      dayLabel = 'Today';
+    } else if (i === 1) {
+      dayLabel = 'Tomorrow';
+    } else {
+      dayLabel = targetDate.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    }
+
+    const calculatedAqi = Math.max(15, Math.round(baseAqi * aqiFactors[i]));
+    const apiDay = dailyApi[i];
+
+    // Priority to real-world live daily model readings if received from live atmospheric mesh API
+    const tempHigh = apiDay?.tempMax !== undefined
+      ? apiDay.tempMax
+      : Math.round(station.weather.temp + (i === 0 ? 3 : i === 3 ? 5 : 2));
+    const tempLow = apiDay?.tempMin !== undefined
+      ? apiDay.tempMin
+      : Math.round(station.weather.temp - (i === 0 ? 5 : 4));
+    const windSpeedKmh = apiDay?.windSpeedKmh !== undefined
+      ? apiDay.windSpeedKmh
+      : Math.round(station.weather.windSpeedKmh * (i === 1 ? 1.25 : i === 2 ? 1.4 : 1.1));
+
+    days.push({
+      date: dateFormatted,
+      dayLabel,
+      predictedAqi: calculatedAqi,
+      category: getAQICategory(calculatedAqi, standard).label as any,
+      primaryPollutant: i === 2 && baseAqi > 150 ? 'PM2.5' : (i === 4 ? 'PM2.5' : station.dominantPollutant),
+      tempHigh,
+      tempLow,
+      weatherCondition: conditions[i],
+      windSpeedKmh,
+      trend: trends[i],
+      confidence: confidences[i],
+      synopsis: synopses[i],
+    });
+  }
 
   return days;
 }
@@ -147,6 +164,7 @@ export function getHistoricalTrend(
 
   let pointsCount = 24;
   let labelFormat: (idx: number, total: number) => { label: string; timestamp: string };
+  const now = new Date();
 
   if (range === '1H') {
     pointsCount = 12; // every 5 minutes
@@ -177,24 +195,31 @@ export function getHistoricalTrend(
       };
     };
   } else if (range === '7D') {
-    pointsCount = 14; // every 12 hours
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    pointsCount = 14; // every 12 hours over the last 7 real days
     labelFormat = (idx) => {
-      const dayIdx = Math.floor(idx / 2) % 7;
+      const halfDaysAgo = 13 - idx;
+      const daysAgo = Math.floor(halfDaysAgo / 2);
       const isNight = idx % 2 === 0;
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() - daysAgo);
+      const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'short' });
       return {
-        label: `${days[dayIdx]} ${isNight ? 'AM' : 'PM'}`,
-        timestamp: `${days[dayIdx]} ${isNight ? '08:00' : '20:00'}`,
+        label: `${dayName} ${isNight ? 'AM' : 'PM'}`,
+        timestamp: `${dayName}, ${targetDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${isNight ? '08:00' : '20:00'}`,
       };
     };
   } else {
-    // 30D
+    // 30D: past 30 days dynamically calibrated to real-world calendar
     pointsCount = 15; // every 2 days
     labelFormat = (idx) => {
-      const dayNum = idx * 2 + 1;
+      const daysAgo = (14 - idx) * 2;
+      const targetDate = new Date(now);
+      targetDate.setDate(now.getDate() - daysAgo);
+      const m = targetDate.toLocaleDateString('en-US', { month: 'short' });
+      const d = targetDate.getDate();
       return {
-        label: `Sep ${dayNum}`,
-        timestamp: `September ${dayNum}, 2026`,
+        label: `${m} ${d}`,
+        timestamp: targetDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
       };
     };
   }

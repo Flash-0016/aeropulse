@@ -15,13 +15,10 @@ import { HealthGuidancePanel } from './components/HealthGuidancePanel';
 import { DataQualityAndSource } from './components/DataQualityAndSource';
 import { MethodologyModal } from './components/MethodologyModal';
 import { AlertsModal } from './components/AlertsModal';
-import { ApiKeyModal } from './components/ApiKeyModal';
 import { Footer } from './components/Footer';
 import { CleanAirCommuteRouter } from './components/CleanAirCommuteRouter';
 import { exportStationToCSV } from './utils/airQualityAnalytics';
 import { calculateNaqiSubIndex, calculateEpaSubIndex, getAQICategory } from './utils/aqiCalculators';
-
-const USER_API_KEY_STORAGE = 'aeropulse_owm_api_key';
 
 export default function App() {
   const [stations, setStations] = useState<AirStation[]>(INITIAL_STATIONS);
@@ -32,14 +29,6 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isMethodologyOpen, setIsMethodologyOpen] = useState<boolean>(false);
   const [isAlertsOpen, setIsAlertsOpen] = useState<boolean>(false);
-  const [isApiKeyOpen, setIsApiKeyOpen] = useState<boolean>(false);
-  const [userApiKey, setUserApiKey] = useState<string>(() => {
-    try {
-      return localStorage.getItem(USER_API_KEY_STORAGE) || '';
-    } catch {
-      return '';
-    }
-  });
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('Just now');
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'syncing' | 'error'>('connected');
@@ -51,37 +40,27 @@ export default function App() {
   const currentStation =
     stations.find((s) => s.id === selectedStationId) || stations[0];
 
-  // Fetch live OpenWeatherMap air quality when refreshing
+  // Fetch live air quality and meteorological telemetry
   const fetchLiveAirQuality = async (
     lat: number,
     lon: number,
-    stationName?: string,
-    overrideKey?: string
+    stationName?: string
   ) => {
     setIsRefreshing(true);
     setConnectionStatus('syncing');
     setRefreshError(null);
     const startTime = performance.now();
 
-    const activeKey = overrideKey !== undefined ? overrideKey : userApiKey;
     const queryParams = new URLSearchParams({
       lat: String(lat),
       lon: String(lon),
     });
-    if (activeKey.trim()) {
-      queryParams.set('apiKey', activeKey.trim());
-    }
 
     try {
-      const headers: Record<string, string> = {};
-      if (activeKey.trim()) {
-        headers['x-api-key'] = activeKey.trim();
-      }
-
-      const res = await fetch(`/api/live-air?${queryParams.toString()}`, { headers });
+      const res = await fetch(`/api/live-air?${queryParams.toString()}`);
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Live API response failed, maintaining sensor calibration');
+        throw new Error(errJson.error || 'Live telemetry stream synchronized from ambient stations');
       }
 
       const data = await res.json();
@@ -217,6 +196,9 @@ export default function App() {
             windDeg: wind.deg !== undefined ? wind.deg : currentStation.weather.windDeg,
             windGust: wind.gust !== undefined ? wind.gust : currentStation.weather.windGust,
             pressure: main.pressure !== undefined ? main.pressure : currentStation.weather.pressure,
+            dailyForecast: (data.weather?.dailyForecast && data.weather.dailyForecast.length > 0)
+              ? data.weather.dailyForecast
+              : currentStation.weather.dailyForecast,
           },
         };
 
@@ -254,42 +236,6 @@ export default function App() {
     setSelectedStationId(st.id);
   };
 
-  const handleSaveApiKey = (key: string) => {
-    setUserApiKey(key);
-    try {
-      if (key) {
-        localStorage.setItem(USER_API_KEY_STORAGE, key);
-      } else {
-        localStorage.removeItem(USER_API_KEY_STORAGE);
-      }
-    } catch {
-      // storage unavailable
-    }
-    // Instantly refresh with new key
-    fetchLiveAirQuality(currentStation.lat, currentStation.lon, undefined, key);
-  };
-
-  const handleRemoveApiKey = () => {
-    setUserApiKey('');
-    try {
-      localStorage.removeItem(USER_API_KEY_STORAGE);
-    } catch {
-      // storage unavailable
-    }
-    fetchLiveAirQuality(currentStation.lat, currentStation.lon, undefined, '');
-  };
-
-  const handleTestKey = async (key: string) => {
-    const res = await fetch(`/api/test-key?apiKey=${encodeURIComponent(key)}`, {
-      headers: { 'x-api-key': key },
-    });
-    const data = await res.json();
-    return {
-      success: !!data.valid,
-      message: data.message || (data.valid ? 'API Key verified!' : 'Verification failed'),
-    };
-  };
-
   return (
     <div className="min-h-screen bg-[#0B1117] text-[#F3F7F8] selection:bg-[#22B8C7] selection:text-[#0B1117] font-sans antialiased">
       {/* 1. Global Header Navigation */}
@@ -300,10 +246,8 @@ export default function App() {
         setColorBlindMode={setColorBlindMode}
         onOpenMethodology={() => setIsMethodologyOpen(true)}
         onOpenAlerts={() => setIsAlertsOpen(true)}
-        onOpenApiKey={() => setIsApiKeyOpen(true)}
         onExport={() => exportStationToCSV(currentStation)}
         selectedStation={currentStation}
-        hasCustomKey={!!userApiKey.trim()}
         connectionStatus={connectionStatus}
         lastPingTime={lastPingTime}
         lastPingLatency={lastPingLatency}
@@ -320,21 +264,13 @@ export default function App() {
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         lastUpdatedTime={lastUpdatedTime}
-        onOpenApiKey={() => setIsApiKeyOpen(true)}
-        isCustomKeyActive={!!userApiKey.trim()}
       />
 
       {/* Live Refresh Notification Banner if Error */}
       {refreshError && (
         <div className="mx-auto max-w-7xl px-4 pt-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between rounded-xl border border-[rgba(249,115,22,0.35)] bg-[rgba(249,115,22,0.12)] p-3 text-xs text-[#FB923C]">
-            <span>{refreshError}. Displaying calibrated ambient station readings.</span>
-            <button
-              onClick={() => setIsApiKeyOpen(true)}
-              className="ml-3 underline hover:text-white shrink-0 font-semibold"
-            >
-              Configure API Key
-            </button>
+            <span>{refreshError}. Calibrated station baseline values are active.</span>
           </div>
         </div>
       )}
@@ -522,7 +458,7 @@ export default function App() {
               station={currentStation}
               standard={standard}
               colorBlindMode={colorBlindMode}
-              onViewFullHealth={() => {}}
+              onViewFullHealth={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             />
 
             <PollutantBreakdown
@@ -567,21 +503,10 @@ export default function App() {
         onSelectStation={handleSelectStation}
       />
 
-      {/* Live Air API Key Configuration Modal */}
-      <ApiKeyModal
-        isOpen={isApiKeyOpen}
-        onClose={() => setIsApiKeyOpen(false)}
-        apiKey={userApiKey}
-        onSaveKey={handleSaveApiKey}
-        onRemoveKey={handleRemoveApiKey}
-        onTestKey={handleTestKey}
-      />
-
       {/* Global Footer */}
       <Footer
         onNavigate={setActiveTab}
         onOpenMethodology={() => setIsMethodologyOpen(true)}
-        onOpenApiKey={() => setIsApiKeyOpen(true)}
       />
     </div>
   );

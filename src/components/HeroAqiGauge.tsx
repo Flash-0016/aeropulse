@@ -44,7 +44,28 @@ export const HeroAqiGauge: React.FC<HeroAqiGaugeProps> = ({
   const currentRatio = Math.min(500, Math.max(0, aqiValue)) / 500;
   const strokeDashoffset = maxArcLength * (1 - currentRatio);
 
-  const dominantPollutantDetail = station.pollutants[station.dominantPollutant.toLowerCase().replace('.', '')];
+  const dominantKey = station.dominantPollutant
+    ? station.dominantPollutant.toLowerCase().replace('.', '')
+    : 'pm25';
+  const dominantPollutantDetail = station.pollutants ? station.pollutants[dominantKey] : undefined;
+
+  const legendItems = standard === 'NAQI'
+    ? [
+        { label: '0–50 Good', color: '#16A34A', active: aqiValue <= 50 },
+        { label: '51–100 Satisfactory', color: '#84CC16', active: aqiValue > 50 && aqiValue <= 100 },
+        { label: '101–200 Moderate', color: '#EAB308', active: aqiValue > 100 && aqiValue <= 200 },
+        { label: '201–300 Poor', color: '#F97316', active: aqiValue > 200 && aqiValue <= 300 },
+        { label: '301–400 Very Poor', color: '#EF4444', active: aqiValue > 300 && aqiValue <= 400 },
+        { label: '401–500 Severe', color: '#991B1B', active: aqiValue > 400 },
+      ]
+    : [
+        { label: '0–50 Good', color: '#16A34A', active: aqiValue <= 50 },
+        { label: '51–100 Moderate', color: '#84CC16', active: aqiValue > 50 && aqiValue <= 100 },
+        { label: '101–150 Sensitive', color: '#EAB308', active: aqiValue > 100 && aqiValue <= 150 },
+        { label: '151–200 Unhealthy', color: '#F97316', active: aqiValue > 150 && aqiValue <= 200 },
+        { label: '201–300 Very Unhealthy', color: '#EF4444', active: aqiValue > 200 && aqiValue <= 300 },
+        { label: '301–500 Hazardous', color: '#991B1B', active: aqiValue > 300 },
+      ];
 
   return (
     <div
@@ -216,14 +237,7 @@ export const HeroAqiGauge: React.FC<HeroAqiGaugeProps> = ({
 
           {/* Compact AQI Reference Legend */}
           <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5 pt-2 text-[10px]">
-            {[
-              { label: '0–50 Good', color: '#16A34A', active: aqiValue <= 50 },
-              { label: '51–100 Satisfactory', color: '#84CC16', active: aqiValue > 50 && aqiValue <= 100 },
-              { label: '101–200 Moderate', color: '#EAB308', active: aqiValue > 100 && aqiValue <= 200 },
-              { label: '201–300 Poor', color: '#F97316', active: aqiValue > 200 && aqiValue <= 300 },
-              { label: '301–400 Very Poor', color: '#EF4444', active: aqiValue > 300 && aqiValue <= 400 },
-              { label: '401–500 Severe', color: '#991B1B', active: aqiValue > 400 },
-            ].map((item) => (
+            {legendItems.map((item) => (
               <span
                 key={item.label}
                 className={`flex items-center space-x-1 rounded px-1.5 py-0.5 border ${

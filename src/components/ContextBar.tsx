@@ -21,8 +21,6 @@ interface ContextBarProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   lastUpdatedTime: string;
-  onOpenApiKey?: () => void;
-  isCustomKeyActive?: boolean;
 }
 
 export const ContextBar: React.FC<ContextBarProps> = ({
@@ -34,8 +32,6 @@ export const ContextBar: React.FC<ContextBarProps> = ({
   isRefreshing,
   onRefresh,
   lastUpdatedTime,
-  onOpenApiKey,
-  isCustomKeyActive,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -144,22 +140,6 @@ export const ContextBar: React.FC<ContextBarProps> = ({
             <span className="text-[#899BA5]">Source:</span>
             <span className="font-medium text-[#78C9D2]">{selectedStation.provider}</span>
           </div>
-
-          {/* Live Data API Key Indicator */}
-          {onOpenApiKey && (
-            <button
-              onClick={onOpenApiKey}
-              title="Click to view or edit OpenWeather API Key"
-              className={`hidden md:flex items-center space-x-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${
-                isCustomKeyActive
-                  ? 'border-[rgba(34,184,199,0.40)] bg-[rgba(34,184,199,0.12)] text-[#4DD4DF]'
-                  : 'border-[rgba(180,210,220,0.12)] bg-[#151F28] text-[#8FA2AD] hover:text-[#C7D3D9] hover:bg-[#1B2933]'
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${isCustomKeyActive ? 'bg-[#22B8C7]' : 'bg-[#16A34A]'}`} />
-              <span>{isCustomKeyActive ? 'Custom API Key' : 'Live API Active'}</span>
-            </button>
-          )}
         </div>
 
         {/* Right: Standard Switcher + Refresh + Timestamp */}

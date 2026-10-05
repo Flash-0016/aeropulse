@@ -14,12 +14,7 @@ import {
   HeartPulse,
   FileSpreadsheet,
   CheckCircle2,
-  Key,
-  Activity,
   RefreshCw,
-  Zap,
-  Check,
-  ExternalLink,
 } from 'lucide-react';
 import { ActiveTab, AirStation } from '../types';
 
@@ -30,10 +25,8 @@ interface HeaderProps {
   setColorBlindMode: (val: boolean) => void;
   onOpenMethodology: () => void;
   onOpenAlerts: () => void;
-  onOpenApiKey: () => void;
   onExport: () => void;
   selectedStation: AirStation;
-  hasCustomKey?: boolean;
   connectionStatus?: 'connected' | 'syncing' | 'error';
   lastPingTime?: string;
   lastPingLatency?: number | null;
@@ -47,10 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   setColorBlindMode,
   onOpenMethodology,
   onOpenAlerts,
-  onOpenApiKey,
   onExport,
   selectedStation,
-  hasCustomKey,
   connectionStatus = 'connected',
   lastPingTime,
   lastPingLatency,
@@ -138,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => setShowConnectionDetails(!showConnectionDetails)}
               id="live-data-connection-indicator"
-              title="Click to view OpenWeatherMap API live connection metrics and ping telemetry"
+              title="Continuous live telemetry stream and ping latency"
               className={`flex items-center space-x-1.5 sm:space-x-2 rounded-full border px-2.5 py-1 text-xs font-medium transition-all shadow-sm ${
                 connectionStatus === 'syncing'
                   ? 'border-[rgba(34,184,199,0.40)] bg-[rgba(34,184,199,0.12)] text-[#4DD4DF] hover:bg-[rgba(34,184,199,0.18)]'
@@ -207,10 +198,10 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-bold text-white flex items-center space-x-1.5">
-                        <span>OpenWeatherMap API</span>
+                        <span>Environmental Telemetry Mesh</span>
                         <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
                       </div>
-                      <div className="text-[10px] text-[#8193A0]">Live Data Connection Status</div>
+                      <div className="text-[10px] text-[#8193A0]">Continuous Real-Time Data Stream</div>
                     </div>
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
@@ -242,55 +233,28 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg bg-[#151F28] px-2.5 py-1.5 border border-[rgba(180,210,220,0.06)]">
-                    <span className="text-[#8193A0] text-[11px]">API Key Mode:</span>
-                    <span className="font-medium text-[#78C9D2]">
-                      {hasCustomKey ? 'Custom API Key' : 'Default Verified Key'}
-                    </span>
+                    <span className="text-[#8193A0] text-[11px]">Monitored Streams:</span>
+                    <span className="font-medium text-[#78C9D2]">PM2.5, PM10, NO2, O3, CO, SO2</span>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="mt-3 pt-3 border-t border-[rgba(180,210,220,0.10)] flex items-center space-x-2">
-                  {onRefresh && (
+                {/* Action Button */}
+                {onRefresh && (
+                  <div className="mt-3 pt-3 border-t border-[rgba(180,210,220,0.10)]">
                     <button
                       onClick={() => {
                         onRefresh();
                       }}
-                      className="flex-1 flex items-center justify-center space-x-1.5 rounded-lg border border-[rgba(34,184,199,0.30)] bg-[rgba(34,184,199,0.12)] px-2.5 py-1.5 text-xs font-semibold text-[#4DD4DF] hover:bg-[rgba(34,184,199,0.20)] transition-colors"
+                      className="w-full flex items-center justify-center space-x-1.5 rounded-lg border border-[rgba(34,184,199,0.30)] bg-[rgba(34,184,199,0.12)] px-2.5 py-1.5 text-xs font-semibold text-[#4DD4DF] hover:bg-[rgba(34,184,199,0.20)] transition-colors"
                     >
                       <RefreshCw className={`h-3 w-3 ${connectionStatus === 'syncing' ? 'animate-spin' : ''}`} />
-                      <span>Ping / Re-sync</span>
+                      <span>Ping / Re-sync Now</span>
                     </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setShowConnectionDetails(false);
-                      onOpenApiKey();
-                    }}
-                    className="flex items-center justify-center space-x-1 rounded-lg border border-[rgba(180,210,220,0.12)] bg-[#151F28] px-2.5 py-1.5 text-xs text-[#B7C5CE] hover:bg-[#1B2933] hover:text-white transition-colors"
-                  >
-                    <Key className="h-3 w-3 text-[#22B8C7]" />
-                    <span>Key</span>
-                  </button>
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-
-          {/* Live API Key Configuration Button */}
-          <button
-            onClick={onOpenApiKey}
-            title={hasCustomKey ? 'Custom OpenWeather API Key Active' : 'Configure Live Air API Key'}
-            id="api-key-config-btn"
-            className={`flex items-center space-x-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
-              hasCustomKey
-                ? 'border-[rgba(34,184,199,0.40)] bg-[rgba(34,184,199,0.15)] text-[#4DD4DF]'
-                : 'border-[rgba(180,210,220,0.14)] bg-[#151F28] text-[#B7C5CE] hover:bg-[#1B2933] hover:text-[#F3F7F8]'
-            }`}
-          >
-            <Key className="h-3.5 w-3.5 text-[#22B8C7]" />
-            <span className="hidden sm:inline">{hasCustomKey ? 'Custom Key' : 'API Key'}</span>
-          </button>
 
           {/* Color Vision Assist Toggle */}
           <button

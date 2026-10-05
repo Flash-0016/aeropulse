@@ -82,7 +82,7 @@ export const PollutantBreakdown: React.FC<PollutantBreakdownProps> = ({
           const item = station.pollutants[key];
           if (!item) return null;
 
-          const isDominant = station.dominantPollutant.toLowerCase().replace('.', '') === key.replace('.', '');
+          const isDominant = (station.dominantPollutant || '').toLowerCase().replace('.', '') === key.replace('.', '');
           const statusColor = getStatusColor(item.status);
           const percentOfLimit = Math.min(250, Math.round((item.value / item.standardLimit24h) * 100));
 

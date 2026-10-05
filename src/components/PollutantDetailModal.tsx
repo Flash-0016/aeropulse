@@ -142,7 +142,7 @@ export const PollutantDetailModal: React.FC<PollutantDetailModalProps> = ({
             <span className="text-xs font-mono text-slate-500">Unit: {pollutant.unit}</span>
           </div>
           <div className="h-40 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={150}>
               <AreaChart data={sparklineData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id={`grad-${pollutant.code}`} x1="0" y1="0" x2="0" y2="1">

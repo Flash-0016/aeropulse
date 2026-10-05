@@ -5,10 +5,9 @@ import { ActiveTab } from '../types';
 interface FooterProps {
   onNavigate: (tab: ActiveTab) => void;
   onOpenMethodology: () => void;
-  onOpenApiKey?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenMethodology, onOpenApiKey }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenMethodology }) => {
   return (
     <footer className="w-full border-t border-[rgba(180,210,220,0.08)] bg-[#0B1117] py-10 text-xs text-[#6F828E]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-8">
@@ -77,7 +76,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenMethodology, o
                   onClick={() => onNavigate('forecast')}
                   className="text-[#8FA2AD] hover:text-[#4DD4DF] transition-colors"
                 >
-                  5-Day Air Quality Forecast
+                  5-Day Atmospheric Quality Outlook
                 </button>
               </li>
               <li>
@@ -107,15 +106,6 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate, onOpenMethodology, o
                 <BookOpen className="h-3.5 w-3.5 text-[#22B8C7]" />
                 <span>Science & Calculation Methodology</span>
               </button>
-              {onOpenApiKey && (
-                <button
-                  onClick={onOpenApiKey}
-                  className="flex items-center space-x-1.5 rounded-lg border border-[rgba(180,210,220,0.12)] bg-[#131D26] px-3 py-1.5 text-xs text-[#C7D3D9] hover:border-[rgba(34,184,199,0.40)] hover:text-white hover:bg-[#182632] transition-colors"
-                >
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#4ADE80]" />
-                  <span>Configure Live API Key</span>
-                </button>
-              )}
             </div>
           </div>
         </div>

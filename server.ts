@@ -41,7 +41,7 @@ app.get('/api/live-air', async (req, res) => {
 
     // High-resolution real-time atmospheric mesh & meteorological APIs (always active)
     const openMeteoAirPromise = fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`);
-    const openMeteoWeatherPromise = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m`);
+    const openMeteoWeatherPromise = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max&timezone=auto`);
 
     const [owmAirRes, owmWeatherRes] = hasOwmKey
       ? await Promise.allSettled(fetchPromises)
@@ -111,6 +111,27 @@ app.get('/api/live-air', async (req, res) => {
           deg: omw.wind_direction_10m !== undefined ? omw.wind_direction_10m : 180,
         },
       };
+    }
+
+    // Extract real-world daily forecast from Open-Meteo for the 5-day atmospheric quality outlook
+    const dailyForecast: { date: string; tempMax: number; tempMin: number; windSpeedKmh: number }[] = [];
+    if (openMeteoWeatherData?.daily?.time) {
+      const times: string[] = openMeteoWeatherData.daily.time;
+      const maxs: number[] = openMeteoWeatherData.daily.temperature_2m_max || [];
+      const mins: number[] = openMeteoWeatherData.daily.temperature_2m_min || [];
+      const winds: number[] = openMeteoWeatherData.daily.wind_speed_10m_max || [];
+      for (let i = 0; i < Math.min(times.length, 5); i++) {
+        dailyForecast.push({
+          date: times[i],
+          tempMax: Math.round(maxs[i] ?? 28),
+          tempMin: Math.round(mins[i] ?? 18),
+          windSpeedKmh: Math.round(winds[i] ?? 10),
+        });
+      }
+    }
+
+    if (weatherData) {
+      weatherData.dailyForecast = dailyForecast;
     }
 
     const synthesizedAir = {

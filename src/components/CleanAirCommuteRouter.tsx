@@ -41,9 +41,9 @@ export const CleanAirCommuteRouter: React.FC = () => {
     commuteMode
   );
 
-  const doseDeltaPercent = Math.round(
-    ((highwayInhaledDose - currentInhaledDose) / highwayInhaledDose) * 100
-  );
+  const doseDeltaPercent = highwayInhaledDose > 0
+    ? Math.round(((highwayInhaledDose - currentInhaledDose) / highwayInhaledDose) * 100)
+    : 0;
 
   return (
     <div id="clean-air-commute-router" className="flex flex-col gap-6 rounded-2xl border border-white/10 bg-[#020408]/80 p-6 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative overflow-hidden">

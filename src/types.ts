@@ -66,6 +66,7 @@ export interface AirStation {
     boundaryLayerHeight: number; // meters
     inversionStrength: number; // 0 - 100
     ventilationIndex: number; // m²/s
+    dailyForecast?: { date: string; tempMax: number; tempMin: number; windSpeedKmh: number }[];
   };
 }
 

@@ -169,7 +169,7 @@ function interpolateSubIndex(
   conc: number,
   bp: Array<{ cLow: number; cHigh: number; iLow: number; iHigh: number }>
 ): number {
-  if (conc <= 0) return 0;
+  if (conc === undefined || conc === null || isNaN(conc) || !isFinite(conc) || conc <= 0) return 0;
   for (const b of bp) {
     if (conc <= b.cHigh) {
       const idx = ((b.iHigh - b.iLow) / (b.cHigh - b.cLow)) * (conc - b.cLow) + b.iLow;

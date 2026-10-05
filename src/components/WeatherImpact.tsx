@@ -23,8 +23,10 @@ export const WeatherImpact: React.FC<WeatherImpactProps> = ({ station }) => {
   // Calculate cardinal wind direction from degrees
   const getCardinalDirection = (angle: number) => {
     const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-    const index = Math.round(angle / 22.5) % 16;
-    return directions[index];
+    if (isNaN(angle) || angle === undefined || angle === null) return 'N';
+    const normalized = ((angle % 360) + 360) % 360;
+    const index = Math.round(normalized / 22.5) % 16;
+    return directions[index] || 'N';
   };
 
   const cardinal = getCardinalDirection(weather.windDeg);
