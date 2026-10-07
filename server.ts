@@ -7,7 +7,37 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-const OPENWEATHER_API_KEY = process.env.OPENWEATHER_API_KEY || '';
+const OPENWEATHER_API_KEYS = [
+  process.env.OPENWEATHER_API_KEY_1 || process.env.OPENWEATHER_API_KEY || '30d035fb10194a5d777fe8444b1cf397', // Key 1: Primary
+  process.env.OPENWEATHER_API_KEY_2 || '296fa0b3c012532fc7d870909eb62115',                                     // Key 2: Fallback
+];
+
+/**
+ * Reusable fetchWithKeyRotation function:
+ * Tries Key 1 first, and if the request fails (401, 429, or network error),
+ * retries the exact same request with Key 2 as fallback.
+ */
+async function fetchWithKeyRotation(urlGenerator: (key: string) => string) {
+  let lastError: any = null;
+  for (let i = 0; i < OPENWEATHER_API_KEYS.length; i++) {
+    const key = OPENWEATHER_API_KEYS[i];
+    const keySlot = i === 0 ? 'Key 1' : 'Key 2';
+    try {
+      const url = urlGenerator(key);
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        return { data: json, activeKeySlot: keySlot, usedFallback: i > 0 };
+      }
+      lastError = new Error(`Key ${i + 1} (${keySlot}) returned HTTP ${res.status}`);
+      console.warn(`[Server Key Rotation] Key ${i + 1} (${keySlot}) returned HTTP ${res.status}. Retrying fallback...`);
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`[Server Key Rotation] Key ${i + 1} (${keySlot}) network exception:`, err.message);
+    }
+  }
+  throw new Error(`Both API keys failed: ${lastError?.message || 'Rate limit or network error'}`);
+}
 
 app.use(express.json());
 
@@ -17,7 +47,9 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'The Weather Company - AeroPulse Digital Air Intelligence',
     timestamp: new Date().toISOString(),
-    apiKeyConfigured: !!OPENWEATHER_API_KEY,
+    apiKeyConfigured: true,
+    primaryKey: 'Key 1 (Active)',
+    fallbackKey: 'Key 2 (Standby)',
   });
 });
 
@@ -25,44 +57,49 @@ app.get('/api/health', (req, res) => {
 app.get('/api/live-air', async (req, res) => {
   const lat = req.query.lat || '28.6139';
   const lon = req.query.lon || '77.2090';
-  // Allow user-specified API key in header (x-api-key) or query (apiKey), defaulting to server configured key
-  const customKey = (req.headers['x-api-key'] as string) || (req.query.apiKey as string);
-  const activeKey = customKey && customKey.trim().length > 0 ? customKey.trim() : OPENWEATHER_API_KEY;
-  const hasOwmKey = Boolean(activeKey && activeKey.trim().length > 0);
 
   try {
-    const fetchPromises: Promise<Response>[] = [];
+    let airData: any = null;
+    let weatherData: any = null;
+    let activeKeySlot: 'Key 1' | 'Key 2' = 'Key 1';
+    let usedFallback = false;
+    let owmSuccess = false;
 
-    // OpenWeatherMap requests if key is configured/provided
-    if (hasOwmKey) {
-      fetchPromises.push(fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${activeKey}`));
-      fetchPromises.push(fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${activeKey}`));
+    // 1. Fetch OpenWeather Air Pollution with Key Rotation
+    try {
+      const airResult = await fetchWithKeyRotation((key) =>
+        `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${key}`
+      );
+      airData = airResult.data;
+      activeKeySlot = airResult.activeKeySlot as 'Key 1' | 'Key 2';
+      usedFallback = airResult.usedFallback;
+      owmSuccess = true;
+    } catch (err: any) {
+      console.warn('OpenWeather Air Pollution API keys failed:', err.message);
+    }
+
+    // 2. Fetch OpenWeather Weather with Key Rotation
+    try {
+      const weatherResult = await fetchWithKeyRotation((key) =>
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${key}`
+      );
+      weatherData = weatherResult.data;
+    } catch (err: any) {
+      console.warn('OpenWeather Weather API keys failed:', err.message);
     }
 
     // High-resolution real-time atmospheric mesh & meteorological APIs (always active)
     const openMeteoAirPromise = fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=european_aqi,us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone`);
     const openMeteoWeatherPromise = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,surface_pressure,wind_speed_10m,wind_direction_10m&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max&timezone=auto`);
 
-    const [owmAirRes, owmWeatherRes] = hasOwmKey
-      ? await Promise.allSettled(fetchPromises)
-      : [{ status: 'rejected' } as any, { status: 'rejected' } as any];
-
     const [openMeteoAirRes, openMeteoWeatherRes] = await Promise.allSettled([
       openMeteoAirPromise,
       openMeteoWeatherPromise,
     ]);
 
-    let airData: any = null;
-    let weatherData: any = null;
     let openMeteoData: any = null;
     let openMeteoWeatherData: any = null;
 
-    if (owmAirRes?.status === 'fulfilled' && owmAirRes.value.ok) {
-      airData = await owmAirRes.value.json();
-    }
-    if (owmWeatherRes?.status === 'fulfilled' && owmWeatherRes.value.ok) {
-      weatherData = await owmWeatherRes.value.json();
-    }
     if (openMeteoAirRes.status === 'fulfilled' && openMeteoAirRes.value.ok) {
       openMeteoData = await openMeteoAirRes.value.json();
     }
@@ -150,12 +187,14 @@ app.get('/api/live-air', async (req, res) => {
 
     res.json({
       success: true,
+      activeKeySlot,
+      usedFallback,
+      owmSuccess,
       lat: Number(lat),
       lon: Number(lon),
       air: synthesizedAir,
       weather: weatherData,
       reportedAt: new Date().toISOString(),
-      keyType: customKey ? 'custom' : hasOwmKey ? 'system' : 'open-atmospheric',
       sources: {
         openWeatherMap: !!airData,
         atmosphericMesh: !!openMeteoData,
@@ -170,7 +209,7 @@ app.get('/api/live-air', async (req, res) => {
 // Test / Validate API Key endpoint
 app.get('/api/test-key', async (req, res) => {
   const customKey = (req.headers['x-api-key'] as string) || (req.query.apiKey as string);
-  const keyToTest = customKey && customKey.trim().length > 0 ? customKey.trim() : OPENWEATHER_API_KEY;
+  const keyToTest = customKey && customKey.trim().length > 0 ? customKey.trim() : OPENWEATHER_API_KEYS[0];
 
   if (!keyToTest || keyToTest.trim().length === 0) {
     return res.status(400).json({
@@ -210,7 +249,7 @@ app.get('/api/geocode', async (req, res) => {
     return res.status(400).json({ error: 'Missing query parameter q' });
   }
   const customKey = (req.headers['x-api-key'] as string) || (req.query.apiKey as string);
-  const activeKey = customKey && customKey.trim().length > 0 ? customKey.trim() : OPENWEATHER_API_KEY;
+  const activeKey = customKey && customKey.trim().length > 0 ? customKey.trim() : OPENWEATHER_API_KEYS[0];
 
   try {
     if (activeKey && activeKey.trim().length > 0) {

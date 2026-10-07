@@ -9,6 +9,7 @@ import {
   Search,
   Clock,
   ShieldCheck,
+  Key,
 } from 'lucide-react';
 import { AirStation, AQIStandard } from '../types';
 
@@ -21,6 +22,8 @@ interface ContextBarProps {
   isRefreshing: boolean;
   onRefresh: () => void;
   lastUpdatedTime: string;
+  activeApiKeySlot?: 'Key 1' | 'Key 2';
+  usedFallback?: boolean;
 }
 
 export const ContextBar: React.FC<ContextBarProps> = ({
@@ -32,6 +35,8 @@ export const ContextBar: React.FC<ContextBarProps> = ({
   isRefreshing,
   onRefresh,
   lastUpdatedTime,
+  activeApiKeySlot = 'Key 1',
+  usedFallback = false,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,6 +144,26 @@ export const ContextBar: React.FC<ContextBarProps> = ({
             <ShieldCheck className="h-3 w-3 text-[#22B8C7]" />
             <span className="text-[#899BA5]">Source:</span>
             <span className="font-medium text-[#78C9D2]">{selectedStation.provider}</span>
+          </div>
+
+          {/* Active Key Status Indicator */}
+          <div
+            className={`hidden md:flex items-center space-x-1.5 rounded-md border px-2 py-1 text-[11px] font-mono transition-all ${
+              activeApiKeySlot === 'Key 2'
+                ? 'border-amber-500/35 bg-amber-500/10 text-amber-300'
+                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+            }`}
+            title={
+              activeApiKeySlot === 'Key 2'
+                ? 'Primary Key 1 rate limit exceeded. Auto-failover to Fallback Key 2 active.'
+                : 'Primary OpenWeather API Key 1 is currently active.'
+            }
+          >
+            <Key className="h-3 w-3" />
+            <span>API {activeApiKeySlot}</span>
+            <span className="text-[10px] font-sans opacity-80">
+              {activeApiKeySlot === 'Key 2' ? '(Fallback)' : '(Active)'}
+            </span>
           </div>
         </div>
 

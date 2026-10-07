@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   RefreshCw,
+  Key,
 } from 'lucide-react';
 import { ActiveTab, AirStation } from '../types';
 
@@ -31,6 +32,8 @@ interface HeaderProps {
   lastPingTime?: string;
   lastPingLatency?: number | null;
   onRefresh?: () => void;
+  activeApiKeySlot?: 'Key 1' | 'Key 2';
+  usedFallback?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -46,6 +49,8 @@ export const Header: React.FC<HeaderProps> = ({
   lastPingTime,
   lastPingLatency,
   onRefresh,
+  activeApiKeySlot = 'Key 1',
+  usedFallback = false,
 }) => {
   const [showConnectionDetails, setShowConnectionDetails] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -124,6 +129,27 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Operational Status & Controls */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Small Status Indicator: Active API Key Badge */}
+          <div
+            id="active-api-key-indicator"
+            className={`flex items-center space-x-1.5 rounded-full px-2.5 py-1 text-xs font-mono font-medium border shadow-sm transition-all ${
+              activeApiKeySlot === 'Key 2'
+                ? 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-400'
+            }`}
+            title={
+              activeApiKeySlot === 'Key 2'
+                ? 'Primary Key 1 rate limit exceeded or unavailable. Automatic fallback to Key 2 is active.'
+                : 'OpenWeather API Key 1 (Primary) is actively streaming data.'
+            }
+          >
+            <Key className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-semibold tracking-tight">{activeApiKeySlot}</span>
+            <span className="text-[10px] font-sans font-normal opacity-85">
+              {activeApiKeySlot === 'Key 2' ? '(Fallback)' : '(Active)'}
+            </span>
+          </div>
+
           {/* Small, Persistent 'Live Data Connection' Indicator */}
           <div className="relative" ref={popoverRef}>
             <button
@@ -230,6 +256,25 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="flex items-center justify-between rounded-lg bg-[#151F28] px-2.5 py-1.5 border border-[rgba(180,210,220,0.06)]">
                     <span className="text-[#8193A0] text-[11px]">Station Target:</span>
                     <span className="truncate max-w-[150px] font-medium text-[#C7D3D9]">{selectedStation.name}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg bg-[#151F28] px-2.5 py-1.5 border border-[rgba(180,210,220,0.06)]">
+                    <span className="text-[#8193A0] text-[11px] flex items-center space-x-1">
+                      <Key className="h-3 w-3 text-amber-400" />
+                      <span>Active API Key:</span>
+                    </span>
+                    <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold border ${
+                      activeApiKeySlot === 'Key 2'
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                    }`}>
+                      {activeApiKeySlot} {activeApiKeySlot === 'Key 2' ? '(Fallback)' : '(Primary)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg bg-[#151F28] px-2.5 py-1.5 border border-[rgba(180,210,220,0.06)]">
+                    <span className="text-[#8193A0] text-[11px]">Auto-Refresh Interval:</span>
+                    <span className="font-mono text-[#78C9D2] font-semibold">Every 5 minutes</span>
                   </div>
 
                   <div className="flex items-center justify-between rounded-lg bg-[#151F28] px-2.5 py-1.5 border border-[rgba(180,210,220,0.06)]">

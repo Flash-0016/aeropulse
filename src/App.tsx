@@ -19,6 +19,7 @@ import { Footer } from './components/Footer';
 import { CleanAirCommuteRouter } from './components/CleanAirCommuteRouter';
 import { exportStationToCSV } from './utils/airQualityAnalytics';
 import { calculateNaqiSubIndex, calculateEpaSubIndex, getAQICategory } from './utils/aqiCalculators';
+import { fetchLiveAirTelemetry } from './services/liveAirService';
 
 export default function App() {
   const [stations, setStations] = useState<AirStation[]>(INITIAL_STATIONS);
@@ -31,6 +32,8 @@ export default function App() {
   const [isAlertsOpen, setIsAlertsOpen] = useState<boolean>(false);
   const [lastUpdatedTime, setLastUpdatedTime] = useState<string>('Just now');
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [activeApiKeySlot, setActiveApiKeySlot] = useState<'Key 1' | 'Key 2'>('Key 1');
+  const [usedFallback, setUsedFallback] = useState<boolean>(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'syncing' | 'error'>('connected');
   const [lastPingTime, setLastPingTime] = useState<string>(() => {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -40,7 +43,7 @@ export default function App() {
   const currentStation =
     stations.find((s) => s.id === selectedStationId) || stations[0];
 
-  // Fetch live air quality and meteorological telemetry
+  // Fetch live air quality and meteorological telemetry with dual key rotation & automatic fallback
   const fetchLiveAirQuality = async (
     lat: number,
     lon: number,
@@ -51,22 +54,17 @@ export default function App() {
     setRefreshError(null);
     const startTime = performance.now();
 
-    const queryParams = new URLSearchParams({
-      lat: String(lat),
-      lon: String(lon),
-    });
-
     try {
-      const res = await fetch(`/api/live-air?${queryParams.toString()}`);
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Live telemetry stream synchronized from ambient stations');
+      const data = await fetchLiveAirTelemetry(lat, lon);
+
+      if (data.activeKeySlot) {
+        setActiveApiKeySlot(data.activeKeySlot);
+        setUsedFallback(Boolean(data.usedFallback));
       }
 
-      const data = await res.json();
       if (data.success && data.air && data.air.list && data.air.list[0]) {
         const comp = data.air.list[0].components;
-        const weather = data.weather || {};
+        const weather: any = data.weather || {};
         const wind = weather.wind || {};
         const main = weather.main || {};
 
@@ -228,6 +226,16 @@ export default function App() {
     fetchLiveAirQuality(currentStation.lat, currentStation.lon);
   }, [currentStation.id]);
 
+  // Auto-refresh telemetry data every 5 minutes (300,000 ms)
+  useEffect(() => {
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    const intervalId = setInterval(() => {
+      fetchLiveAirQuality(currentStation.lat, currentStation.lon);
+    }, FIVE_MINUTES_MS);
+
+    return () => clearInterval(intervalId);
+  }, [currentStation.lat, currentStation.lon, currentStation.id]);
+
   const handleRefresh = () => {
     fetchLiveAirQuality(currentStation.lat, currentStation.lon);
   };
@@ -252,6 +260,8 @@ export default function App() {
         lastPingTime={lastPingTime}
         lastPingLatency={lastPingLatency}
         onRefresh={handleRefresh}
+        activeApiKeySlot={activeApiKeySlot}
+        usedFallback={usedFallback}
       />
 
       {/* 2. Context & Station Selection Sub-bar */}
@@ -264,6 +274,8 @@ export default function App() {
         isRefreshing={isRefreshing}
         onRefresh={handleRefresh}
         lastUpdatedTime={lastUpdatedTime}
+        activeApiKeySlot={activeApiKeySlot}
+        usedFallback={usedFallback}
       />
 
       {/* Live Refresh Notification Banner if Error */}
